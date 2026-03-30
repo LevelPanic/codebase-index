@@ -3,11 +3,11 @@ import { chunkPrisma } from "./prisma-chunker.js";
 
 export type { RawChunk };
 
-export function chunkFile(
+export async function chunkFile(
   filePath: string,
   source: string,
   maxChunkChars: number,
-): RawChunk[] {
+): Promise<RawChunk[]> {
   if (filePath.endsWith(".prisma")) {
     return chunkPrisma(source, maxChunkChars);
   }
@@ -15,7 +15,7 @@ export function chunkFile(
   const isTsx = filePath.endsWith(".tsx") || filePath.endsWith(".jsx");
 
   try {
-    return chunkTypeScript(source, isTsx, maxChunkChars, filePath);
+    return await chunkTypeScript(source, isTsx, maxChunkChars, filePath);
   } catch {
     return [
       {

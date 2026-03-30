@@ -34,7 +34,7 @@ export function registerFileContextTool(
             };
           }
 
-          const chunks = chunkFile(
+          const chunks = await chunkFile(
             file_path,
             liveSource,
             config.maxChunkChars,

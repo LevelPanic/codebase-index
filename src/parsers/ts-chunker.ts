@@ -1,5 +1,4 @@
-import type Parser from "tree-sitter";
-import { parse } from "./tree-sitter.js";
+import { parse, type SyntaxNode } from "./tree-sitter.js";
 
 export interface RawChunk {
   exportName: string;
@@ -23,7 +22,7 @@ export interface RawChunk {
 // AST helpers
 // ---------------------------------------------------------------------------
 
-function hasJsx(node: Parser.SyntaxNode): boolean {
+function hasJsx(node: SyntaxNode): boolean {
   if (
     node.type === "jsx_element" ||
     node.type === "jsx_self_closing_element" ||
@@ -38,7 +37,7 @@ function hasJsx(node: Parser.SyntaxNode): boolean {
 }
 
 /** Extract the assigned name from a variable declaration (const foo = ...) */
-function extractVarName(node: Parser.SyntaxNode): string | null {
+function extractVarName(node: SyntaxNode): string | null {
   if (
     node.type !== "lexical_declaration" &&
     node.type !== "variable_declaration"
@@ -54,8 +53,8 @@ function extractVarName(node: Parser.SyntaxNode): string | null {
 
 /** Extract the value node from a variable declaration */
 function extractVarValue(
-  node: Parser.SyntaxNode,
-): Parser.SyntaxNode | null {
+  node: SyntaxNode,
+): SyntaxNode | null {
   const declarator = node.children.find(
     (c) => c.type === "variable_declarator",
   );
@@ -64,7 +63,7 @@ function extractVarValue(
 }
 
 /** Check if a variable declaration holds a function/arrow/call expression */
-function isVarFunction(node: Parser.SyntaxNode): boolean {
+function isVarFunction(node: SyntaxNode): boolean {
   const value = extractVarValue(node);
   if (!value) return false;
   return (
@@ -75,7 +74,7 @@ function isVarFunction(node: Parser.SyntaxNode): boolean {
 }
 
 /** Check if a variable declaration holds a plain object literal */
-function isVarObject(node: Parser.SyntaxNode): boolean {
+function isVarObject(node: SyntaxNode): boolean {
   const value = extractVarValue(node);
   if (!value) return false;
   // Direct object literal
@@ -89,7 +88,7 @@ function isVarObject(node: Parser.SyntaxNode): boolean {
 }
 
 /** Check if a variable holds an array literal */
-function isVarArray(node: Parser.SyntaxNode): boolean {
+function isVarArray(node: SyntaxNode): boolean {
   const value = extractVarValue(node);
   if (!value) return false;
   if (value.type === "array") return true;
@@ -112,7 +111,7 @@ function isStoreName(name: string): boolean {
   return /^(use.+Store|create.+Store|.+Store|.+Slice)$/.test(name);
 }
 
-function isStoreCall(node: Parser.SyntaxNode): boolean {
+function isStoreCall(node: SyntaxNode): boolean {
   const value = extractVarValue(node);
   if (!value || value.type !== "call_expression") return false;
   const callee = value.childForFieldName("function")?.text ?? "";
@@ -121,7 +120,7 @@ function isStoreCall(node: Parser.SyntaxNode): boolean {
 
 function inferChunkType(
   name: string,
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   isTsx: boolean,
 ): RawChunk["chunkType"] {
   if (isStoreName(name) || isStoreCall(node)) return "store";
@@ -266,7 +265,7 @@ function isBarrelFile(source: string, filePath: string): boolean {
 // ---------------------------------------------------------------------------
 
 function chunkClass(
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   className: string,
   maxChars: number,
   isTsx: boolean,
@@ -352,12 +351,12 @@ function chunkClass(
 // Main chunker
 // ---------------------------------------------------------------------------
 
-export function chunkTypeScript(
+export async function chunkTypeScript(
   source: string,
   isTsx: boolean,
   maxChunkChars: number,
   filePath?: string,
-): RawChunk[] {
+): Promise<RawChunk[]> {
   // Skip barrel files — they're just re-exports with no useful content
   if (filePath && isBarrelFile(source, filePath)) {
     return [
@@ -371,7 +370,7 @@ export function chunkTypeScript(
     ];
   }
 
-  const tree = parse(source, isTsx);
+  const tree = await parse(source, isTsx);
   const root = tree.rootNode;
   const chunks: RawChunk[] = [];
   const coveredRanges: Set<number> = new Set();
@@ -380,15 +379,15 @@ export function chunkTypeScript(
   // First pass: collect type chunks for context injection
   const typeChunks: RawChunk[] = [];
 
-  function markCovered(node: Parser.SyntaxNode) {
+  function markCovered(node: SyntaxNode) {
     for (let i = node.startPosition.row; i <= node.endPosition.row; i++) {
       coveredRanges.add(i);
     }
   }
 
   function processDeclaration(
-    node: Parser.SyntaxNode,
-    declaration: Parser.SyntaxNode,
+    node: SyntaxNode,
+    declaration: SyntaxNode,
     isExported: boolean,
   ) {
     // Type/interface/enum

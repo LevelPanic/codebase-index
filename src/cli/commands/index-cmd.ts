@@ -14,6 +14,7 @@ import {
   deleteByFiles,
   getStats,
 } from "../../storage/lancedb.js";
+import { getBackendType } from "../../parsers/tree-sitter.js";
 
 interface IndexMeta {
   lastCommit: string;
@@ -76,6 +77,11 @@ async function fullIndex(
   const files = await listIndexableFiles(config);
   console.log(`Found ${files.length} files`);
 
+  // Trigger parser init and log backend
+  const { parse } = await import("../../parsers/tree-sitter.js");
+  await parse("", false);
+  console.log(`Parser: ${getBackendType()}`);
+
   let allChunks: Omit<ChunkWithVector, "vector">[] = [];
   let skipped = 0;
 
@@ -86,7 +92,7 @@ async function fullIndex(
         skipped++;
         continue;
       }
-      const chunks = buildChunksForFile(filePath, source, commit, config);
+      const chunks = await buildChunksForFile(filePath, source, commit, config);
       allChunks.push(...chunks);
     } catch {
       skipped++;
@@ -192,7 +198,7 @@ async function incrementalIndex(
     try {
       const source = readFile(filePath, config.repoRoot);
       if (!source.trim()) continue;
-      const chunks = buildChunksForFile(filePath, source, commit, config);
+      const chunks = await buildChunksForFile(filePath, source, commit, config);
       allChunks.push(...chunks);
     } catch {
       // skip
@@ -225,13 +231,13 @@ async function incrementalIndex(
   console.log("Incremental index complete!");
 }
 
-function buildChunksForFile(
+async function buildChunksForFile(
   filePath: string,
   source: string,
   gitCommit: string,
   config: ReturnType<typeof loadConfig>,
-): Omit<ChunkWithVector, "vector">[] {
-  const rawChunks = chunkFile(filePath, source, config.maxChunkChars);
+): Promise<Omit<ChunkWithVector, "vector">[]> {
+  const rawChunks = await chunkFile(filePath, source, config.maxChunkChars);
   const tags = inferTags(config.tags, filePath, source);
   const fileHash = hashContent(source);
   const indexedAt = new Date().toISOString();

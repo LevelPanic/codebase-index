@@ -77,7 +77,7 @@ export function registerSearchTool(
         }
 
         // Enrich with freshness checks
-        const enriched = results.map((row) => {
+        const enriched = await Promise.all(results.map(async (row) => {
           const filePath = row.file_path as string;
           const exportName = row.export_name as string;
           const chunkType = row.chunk_type as string;
@@ -88,7 +88,7 @@ export function registerSearchTool(
             stale = true;
             const liveSource = readLiveFile(filePath, config);
             if (liveSource) {
-              const liveChunks = chunkFile(
+              const liveChunks = await chunkFile(
                 filePath,
                 liveSource,
                 config.maxChunkChars,
@@ -121,7 +121,7 @@ export function registerSearchTool(
             stale,
             content,
           };
-        });
+        }));
 
         const text = enriched
           .map(
