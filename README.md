@@ -12,25 +12,22 @@ brew install ollama
 ollama serve
 ollama pull nomic-embed-text
 
+# Clone the tool (one-time)
+git clone https://github.com/LevelPanic/codebase-index.git ~/codebase-index
+cd ~/codebase-index && npm install
+
 # In your repo
-npx codebase-index init          # generates config
-npx codebase-index index --full  # build the index
+cd ~/your-project
+npx tsx ~/codebase-index/src/cli/index.ts init          # generates config + wires .mcp.json
+npx tsx ~/codebase-index/src/cli/index.ts index --full   # build the index
 ```
 
-Add to your `.mcp.json` (Claude Code):
+The `init` command automatically:
+- Creates `codebase-index.config.json` with detected file patterns
+- Adds `.codebase-index/` to `.gitignore`
+- Wires the MCP server into `.mcp.json` with the correct path
 
-```json
-{
-  "mcpServers": {
-    "codebase-index": {
-      "command": "npx",
-      "args": ["codebase-index", "serve"]
-    }
-  }
-}
-```
-
-That's it. Claude Code now has `search_codebase` and `get_file_context` tools.
+Restart Claude Code and it has `search_codebase` and `get_file_context` tools.
 
 ## How It Works
 
@@ -147,12 +144,18 @@ With these tags configured, `search_codebase` automatically gets `layer` and `do
 
 ## CLI
 
+Run commands via `npx tsx ~/codebase-index/src/cli/index.ts <command>` from your repo directory. Or create a shell alias:
+
+```bash
+alias cbi="npx tsx ~/codebase-index/src/cli/index.ts"
 ```
-codebase-index init [--force]     Generate starter config
-codebase-index index              Incremental index (changed files only)
-codebase-index index --full       Full reindex (drop and rebuild)
-codebase-index stats              Show index statistics
-codebase-index serve              Start MCP server (stdio)
+
+```
+cbi init [--force]     Generate config + wire .mcp.json
+cbi index              Incremental index (changed files only)
+cbi index --full       Full reindex (drop and rebuild)
+cbi stats              Show index statistics
+cbi serve              Start MCP server (stdio)
 ```
 
 ### Indexing
@@ -215,6 +218,17 @@ The index tracks the base branch (default: `main`). When you're on a feature bra
 4. You get current content, not stale indexed content
 
 This means the index only needs to track `main` — feature branch changes are always live.
+
+## Using in Multiple Repos
+
+Clone once, use everywhere. Run `init` in each repo — it auto-detects the structure and wires everything up:
+
+```bash
+cd ~/project-a && npx tsx ~/codebase-index/src/cli/index.ts init
+cd ~/project-b && npx tsx ~/codebase-index/src/cli/index.ts init
+```
+
+Each repo gets its own config, its own `.codebase-index/` directory, and its own `.mcp.json` entry.
 
 ## License
 
