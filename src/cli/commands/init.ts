@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { execSync } from "child_process";
+import { fileURLToPath } from "url";
 
 const CONFIG_FILENAME = "codebase-index.config.json";
 
@@ -15,13 +16,18 @@ function getRepoRoot(): string {
   }
 }
 
+function getServePath(): string {
+  // Resolve the path to this package's CLI entry point
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(__dirname, "../../cli/index.ts");
+}
+
 function detectStructure(
   repoRoot: string,
 ): { include: string[]; hasPrisma: boolean } {
   const include: string[] = [];
   let hasPrisma = false;
 
-  // Check for common directory patterns
   if (fs.existsSync(path.join(repoRoot, "src"))) {
     include.push("src/**/*.{ts,tsx,js,jsx}");
   }
@@ -35,12 +41,10 @@ function detectStructure(
     include.push("lib/**/*.{ts,tsx,js,jsx}");
   }
 
-  // Fallback
   if (include.length === 0) {
     include.push("**/*.{ts,tsx,js,jsx}");
   }
 
-  // Check for Prisma
   try {
     const findResult = execSync(
       "find . -name schema.prisma -maxdepth 5 -not -path '*/node_modules/*' 2>/dev/null | head -1",
@@ -103,14 +107,44 @@ export async function initCommand(opts: { force?: boolean }) {
   if (fs.existsSync(gitignorePath)) {
     const gitignore = fs.readFileSync(gitignorePath, "utf-8");
     if (!gitignore.includes(".codebase-index")) {
-      fs.appendFileSync(gitignorePath, "\n# Codebase index\n.codebase-index/\n");
+      fs.appendFileSync(
+        gitignorePath,
+        "\n# Codebase index\n.codebase-index/\n",
+      );
       console.log("Added .codebase-index/ to .gitignore");
     }
   }
 
+  // Wire up .mcp.json
+  const servePath = getServePath();
+  const mcpPath = path.join(repoRoot, ".mcp.json");
+  let mcpConfig: Record<string, unknown> = {};
+
+  if (fs.existsSync(mcpPath)) {
+    try {
+      mcpConfig = JSON.parse(fs.readFileSync(mcpPath, "utf-8"));
+    } catch {
+      // invalid JSON, start fresh
+    }
+  }
+
+  const servers = (mcpConfig.mcpServers as Record<string, unknown>) ?? {};
+  servers["codebase-index"] = {
+    command: "npx",
+    args: ["tsx", servePath, "serve"],
+    env: {
+      PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
+    },
+  };
+  mcpConfig.mcpServers = servers;
+
+  fs.writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2) + "\n");
+  console.log("Added codebase-index to .mcp.json");
+
   console.log("\nNext steps:");
-  console.log("  1. Edit the config to add tags for your repo");
-  console.log("  2. Run: codebase-index index --full");
-  console.log("  3. Add to your .mcp.json:");
-  console.log('     { "codebase-index": { "command": "npx", "args": ["codebase-index", "serve"] } }');
+  console.log("  1. (Optional) Edit the config to add tags for your repo");
+  console.log(
+    "  2. Run: npx tsx " + servePath.replace(/ /g, "\\ ") + " index --full",
+  );
+  console.log("  3. Restart Claude Code to pick up the MCP server");
 }
