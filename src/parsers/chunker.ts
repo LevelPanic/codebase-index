@@ -15,7 +15,7 @@ export function chunkFile(
   const isTsx = filePath.endsWith(".tsx") || filePath.endsWith(".jsx");
 
   try {
-    return chunkTypeScript(source, isTsx, maxChunkChars);
+    return chunkTypeScript(source, isTsx, maxChunkChars, filePath);
   } catch {
     return [
       {
