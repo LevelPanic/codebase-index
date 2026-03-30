@@ -4,13 +4,14 @@ import { initCommand } from "./commands/init.js";
 import { indexCommand } from "./commands/index-cmd.js";
 import { statsCommand } from "./commands/stats.js";
 import { serveCommand } from "./commands/serve.js";
+import { VERSION } from "../version.js";
 
 const program = new Command()
   .name("codebase-index")
   .description(
     "AST-aware codebase indexing with semantic search via MCP",
   )
-  .version("1.0.0");
+  .version(VERSION);
 
 program
   .command("init")

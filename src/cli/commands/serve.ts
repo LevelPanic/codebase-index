@@ -3,13 +3,14 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { registerSearchTool } from "../../tools/search-codebase.js";
 import { registerFileContextTool } from "../../tools/get-file-context.js";
 import { loadConfig } from "../../config/loader.js";
+import { VERSION } from "../../version.js";
 
 export async function serveCommand() {
   const config = loadConfig();
 
   const server = new McpServer({
     name: "codebase-index",
-    version: "1.0.0",
+    version: VERSION,
   });
 
   registerSearchTool(server, config);

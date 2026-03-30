@@ -77,6 +77,7 @@ async function initWasmBackend(): Promise<ParserBackend> {
     parse(source: string, isTsx: boolean): Tree {
       const parser = isTsx ? tsxParser : tsParser;
       const tree = parser.parse(source);
+      // web-tree-sitter and native tree-sitter have compatible but separately typed APIs
       return tree as unknown as Tree;
     },
   };

@@ -16,10 +16,36 @@ function getRepoRoot(): string {
   }
 }
 
-function getServePath(): string {
-  // Resolve the path to this package's CLI entry point
+/**
+ * Detect whether we're running from source (tsx) or compiled (npm install).
+ * Returns the correct MCP server entry for .mcp.json.
+ */
+function getMcpServerEntry(): { command: string; args: string[] } {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(__dirname, "../../cli/index.ts");
+
+  // Check if we're in src/ (running from source with tsx)
+  const srcCliPath = path.resolve(__dirname, "../../cli/index.ts");
+  if (fs.existsSync(srcCliPath)) {
+    return {
+      command: "npx",
+      args: ["tsx", srcCliPath, "serve"],
+    };
+  }
+
+  // Check if we're in dist/ (compiled npm install)
+  const distCliPath = path.resolve(__dirname, "../../cli/index.js");
+  if (fs.existsSync(distCliPath)) {
+    return {
+      command: "node",
+      args: [distCliPath, "serve"],
+    };
+  }
+
+  // Fallback: assume globally installed via npm
+  return {
+    command: "npx",
+    args: ["codebase-index", "serve"],
+  };
 }
 
 function detectStructure(
@@ -116,7 +142,7 @@ export async function initCommand(opts: { force?: boolean }) {
   }
 
   // Wire up .mcp.json
-  const servePath = getServePath();
+  const mcpEntry = getMcpServerEntry();
   const mcpPath = path.join(repoRoot, ".mcp.json");
   let mcpConfig: Record<string, unknown> = {};
 
@@ -129,13 +155,7 @@ export async function initCommand(opts: { force?: boolean }) {
   }
 
   const servers = (mcpConfig.mcpServers as Record<string, unknown>) ?? {};
-  servers["codebase-index"] = {
-    command: "npx",
-    args: ["tsx", servePath, "serve"],
-    env: {
-      PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
-    },
-  };
+  servers["codebase-index"] = mcpEntry;
   mcpConfig.mcpServers = servers;
 
   fs.writeFileSync(mcpPath, JSON.stringify(mcpConfig, null, 2) + "\n");
@@ -144,7 +164,7 @@ export async function initCommand(opts: { force?: boolean }) {
   console.log("\nNext steps:");
   console.log("  1. (Optional) Edit the config to add tags for your repo");
   console.log(
-    "  2. Run: npx tsx " + servePath.replace(/ /g, "\\ ") + " index --full",
+    `  2. Run: ${mcpEntry.args.slice(0, -1).join(" ")} index --full`,
   );
   console.log("  3. Restart Claude Code to pick up the MCP server");
 }
