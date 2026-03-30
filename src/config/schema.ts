@@ -25,7 +25,6 @@ const EmbeddingConfigSchema = z.object({
   provider: z.enum(["ollama"]).default("ollama"),
   url: z.string().default("http://localhost:11434"),
   model: z.string().default("nomic-embed-text"),
-  dimensions: z.number().default(768),
   batchSize: z.number().default(32),
   concurrency: z.number().default(4),
 });

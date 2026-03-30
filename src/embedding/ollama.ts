@@ -1,4 +1,8 @@
-interface EmbeddingResponse {
+interface EmbedResponse {
+  embeddings: number[][];
+}
+
+interface LegacyEmbeddingResponse {
   embedding: number[];
 }
 
@@ -7,6 +11,23 @@ export async function embed(
   url: string,
   model: string,
 ): Promise<number[]> {
+  // Try new API first (/api/embed), fall back to legacy (/api/embeddings)
+  try {
+    const res = await fetch(`${url}/api/embed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model, input: text }),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as EmbedResponse;
+      return data.embeddings[0]!;
+    }
+  } catch {
+    // Fall through to legacy
+  }
+
+  // Legacy endpoint
   const res = await fetch(`${url}/api/embeddings`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -19,7 +40,7 @@ export async function embed(
     );
   }
 
-  const data = (await res.json()) as EmbeddingResponse;
+  const data = (await res.json()) as LegacyEmbeddingResponse;
   return data.embedding;
 }
 
@@ -31,7 +52,9 @@ export async function healthCheck(
     const res = await fetch(`${url}/api/tags`);
     if (!res.ok) return false;
     const data = (await res.json()) as { models: { name: string }[] };
-    return data.models.some((m) => m.name.includes(model));
+    return data.models.some(
+      (m) => m.name === model || m.name === `${model}:latest`,
+    );
   } catch {
     return false;
   }

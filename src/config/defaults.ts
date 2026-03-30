@@ -22,7 +22,6 @@ export const DEFAULT_CONFIG: CodebaseIndexConfig = {
     provider: "ollama",
     url: "http://localhost:11434",
     model: "nomic-embed-text",
-    dimensions: 768,
     batchSize: 32,
     concurrency: 4,
   },

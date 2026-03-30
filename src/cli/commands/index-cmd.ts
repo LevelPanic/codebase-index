@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { loadConfig } from "../../config/loader.js";
 import { listIndexableFiles, readFile, fileExists } from "../../utils/files.js";
 import { getCurrentCommit, getChangedFilesSince } from "../../utils/git.js";
@@ -11,6 +12,7 @@ import {
   createTable,
   upsertChunks,
   deleteByFiles,
+  getStats,
 } from "../../storage/lancedb.js";
 
 interface IndexMeta {
@@ -29,10 +31,7 @@ function readMeta(metaFile: string): IndexMeta | null {
 }
 
 function writeMeta(metaFile: string, meta: IndexMeta): void {
-  fs.mkdirSync(
-    metaFile.substring(0, metaFile.lastIndexOf("/")),
-    { recursive: true },
-  );
+  fs.mkdirSync(path.dirname(metaFile), { recursive: true });
   fs.writeFileSync(metaFile, JSON.stringify(meta, null, 2));
 }
 
@@ -111,6 +110,11 @@ async function fullIndex(
   console.log(
     `Embedded ${embedded.length} chunks in ${((Date.now() - startTime) / 1000).toFixed(1)}s`,
   );
+
+  if (embedded.length === 0) {
+    console.log("No chunks to index. Is the repo empty?");
+    return;
+  }
 
   console.log("Writing to LanceDB...");
   await createTable(embedded, config);
@@ -210,11 +214,12 @@ async function incrementalIndex(
 
   await upsertChunks(existing, embedded, config);
 
+  const stats = await getStats(config);
   writeMeta(config.metaFile, {
     lastCommit: commit,
     lastIndexed: new Date().toISOString(),
-    totalFiles: meta.totalFiles,
-    totalChunks: meta.totalChunks + embedded.length,
+    totalFiles: stats.totalFiles,
+    totalChunks: stats.totalChunks,
   });
 
   console.log("Incremental index complete!");
@@ -232,7 +237,7 @@ function buildChunksForFile(
   const indexedAt = new Date().toISOString();
 
   return rawChunks.map((chunk) => ({
-    id: `${filePath}::${chunk.exportName}`,
+    id: `${filePath}::${chunk.exportName}::${chunk.startLine}`,
     filePath,
     exportName: chunk.exportName,
     chunkType: chunk.chunkType,

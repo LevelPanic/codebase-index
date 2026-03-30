@@ -51,10 +51,16 @@ export async function embedChunks(
   );
 
   const settled = await Promise.allSettled(promises);
+  let failed = 0;
   for (const result of settled) {
     if (result.status === "fulfilled") {
       results.push(result.value);
+    } else {
+      failed++;
     }
+  }
+  if (failed > 0) {
+    console.warn(`Warning: ${failed} chunks failed to embed`);
   }
 
   return results;

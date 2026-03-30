@@ -6,7 +6,6 @@
   "bin": {
     "codebase-index": "./bin/cli.mjs"
   },
-  "main": "./dist/server.js",
   "files": [
     "dist",
     "bin"

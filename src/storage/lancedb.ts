@@ -101,7 +101,7 @@ export async function search(
   if (options.tagFilters) {
     for (const [key, value] of Object.entries(options.tagFilters)) {
       if (value) {
-        filters.push(`${key} = '${value}'`);
+        filters.push(`${key} = '${value.replace(/'/g, "''")}'`);
       }
     }
   }

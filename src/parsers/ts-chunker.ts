@@ -94,6 +94,22 @@ export function chunkTypeScript(
       continue;
     }
 
+    // Class declarations
+    if (node.type === "class_declaration") {
+      const name = node.childForFieldName("name")?.text ?? "anonymous";
+      chunks.push({
+        exportName: name,
+        chunkType: "function",
+        content: truncateContent(node.text, maxChunkChars),
+        startLine: node.startPosition.row + 1,
+        endLine: node.endPosition.row + 1,
+      });
+      for (let i = node.startPosition.row; i <= node.endPosition.row; i++) {
+        coveredRanges.add(i);
+      }
+      continue;
+    }
+
     // Function declarations
     if (node.type === "function_declaration") {
       const name = node.childForFieldName("name")?.text ?? "anonymous";
@@ -141,7 +157,10 @@ export function chunkTypeScript(
         continue;
       }
 
-      if (declaration.type === "function_declaration") {
+      if (
+        declaration.type === "function_declaration" ||
+        declaration.type === "class_declaration"
+      ) {
         const name =
           declaration.childForFieldName("name")?.text ?? "anonymous";
         const isComponent = isTsx && hasJsx(declaration);

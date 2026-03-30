@@ -1,10 +1,16 @@
 import { execSync } from "child_process";
 
 export function getCurrentCommit(repoRoot: string): string {
-  return execSync("git rev-parse HEAD", {
-    cwd: repoRoot,
-    encoding: "utf-8",
-  }).trim();
+  try {
+    return execSync("git rev-parse HEAD", {
+      cwd: repoRoot,
+      encoding: "utf-8",
+    }).trim();
+  } catch {
+    throw new Error(
+      `Not a git repository (or no commits yet): ${repoRoot}\nCodebase-index requires a git repo with at least one commit.`,
+    );
+  }
 }
 
 export function getChangedFilesSince(
