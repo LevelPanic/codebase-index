@@ -2,7 +2,7 @@
 
 AST-aware codebase indexing with semantic search, exposed as an MCP server. Think Cursor's codebase awareness, but for Claude Code (or any MCP client).
 
-**What it does:** Parses your codebase with tree-sitter, chunks it intelligently (per-function, per-component, per-type), embeds locally with Ollama, stores in LanceDB, and exposes semantic search via MCP.
+**What it does:** Parses your codebase with tree-sitter, chunks it intelligently (functions, components, hooks, stores, configs, classes with method extraction, types), embeds locally with Ollama, stores in LanceDB, and exposes semantic search via MCP.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ Your repo files
   tree-sitter AST parsing
      │
      ▼
-  Smart chunks (functions, components, types, Prisma models)
+  Smart chunks (functions, components, hooks, stores, configs, classes, types, Prisma models)
      │
      ▼
   Ollama embeddings (nomic-embed-text, local, free)
@@ -54,6 +54,11 @@ Your repo files
 ```
 
 - **Chunking is AST-aware** — not dumb line splits. Each function, component, type definition, and Prisma model is its own chunk.
+- **Context-enriched** — function chunks include referenced type definitions inline, so embeddings capture the full picture.
+- **Smart truncation** — large chunks keep signature + head + tail instead of cutting off at the bottom (preserves return statements and JSX output).
+- **Class method extraction** — large classes are split into individual method chunks instead of one truncated blob.
+- **Chunk type detection** — React hooks (`useXxx`), Zustand/Redux stores, config objects, and barrel files are all detected and tagged.
+- **Small type batching** — tiny adjacent type aliases are merged into a single chunk to reduce embedding calls.
 - **Embeddings are local** — Ollama runs on your machine. No API keys, no network, no cost.
 - **Storage is embedded** — LanceDB is just a directory on disk. No database server.
 - **Branch-aware** — when on a feature branch, search results for modified files return live content from disk.
@@ -176,10 +181,28 @@ Get all indexed chunks for a specific file. Shows the file's structure — funct
 |-----------|------|-------------|
 | `file_path` | string | Relative path from repo root |
 
+## Chunk Types
+
+The chunker detects and labels each chunk:
+
+| Type | What it captures |
+|------|-----------------|
+| `function` | Functions and arrow functions |
+| `component` | React components (JSX-returning functions in `.tsx`/`.jsx`) |
+| `hook` | React hooks (`useXxx` naming convention) |
+| `store` | Zustand/Redux stores (`create()`, `*Store`, `*Slice`) |
+| `config` | Plain object/array literals (route maps, constants, configs) |
+| `class` | Class overview with method listing |
+| `method` | Individual methods extracted from large classes |
+| `type` | Type aliases, interfaces, enums |
+| `model` | Prisma model/enum/type blocks |
+| `summary` | File-level overview (imports + export listing) |
+
 ## Prerequisites
 
 - **Node.js 18+**
-- **Ollama** running locally with an embedding model
+- **Git** — the repo must be a git repository with at least one commit
+- **Ollama** running locally with an embedding model (`ollama serve && ollama pull nomic-embed-text`)
 - **C++ compiler** (for tree-sitter native module — Xcode CLI tools on macOS, build-essential on Linux)
 
 ## How Freshness Works
